@@ -27,6 +27,7 @@ export default function PayPage() {
   const [loadingRates, setLoadingRates] = useState(false)
   const [qrDataUrl, setQrDataUrl] = useState('')
   const [copied, setCopied] = useState(false)
+  const [stripeLoading, setStripeLoading] = useState(false)
 
   useEffect(() => {
     fetch(`/api/request/${id}`)
@@ -181,7 +182,36 @@ export default function PayPage() {
           </div>
         )}
 
-        {selectedMethod && selectedMethod !== 'crypto' && (
+        {selectedMethod === 'stripe' && country && (
+          <div style={CARD} className="p-6 text-center">
+            <div className="text-xs font-bold mb-3" style={{ color: '#6366f1' }}>STEP 3 — PAY WITH CARD</div>
+            <p className="text-sm mb-5" style={{ color: '#94a3b8' }}>
+              You'll be redirected to Stripe's secure checkout to pay <strong style={{ color: '#f1f5f9' }}>{country.symbol}{fiatAmount} {country.currency}</strong>.
+            </p>
+            <button
+              onClick={async () => {
+                if (!request || !country) return
+                setStripeLoading(true)
+                try {
+                  const localAmt = parseFloat(fiatAmount.replace(/,/g, ''))
+                  const res = await fetch('/api/stripe-checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ amount_usd: request.amount_usd, coin_symbol: request.coin_symbol, request_id: request.id, payer_country: country.name, currency: country.currency, fiat_amount: localAmt }),
+                  })
+                  const data = await res.json()
+                  if (data.url) window.location.href = data.url
+                } catch { setStripeLoading(false) }
+              }}
+              disabled={stripeLoading}
+              style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', borderRadius: 12, border: 'none', cursor: stripeLoading ? 'not-allowed' : 'pointer', opacity: stripeLoading ? 0.7 : 1, width: '100%', padding: '14px 0', color: '#fff', fontWeight: 700, fontSize: 16 }}>
+              {stripeLoading ? 'Redirecting...' : '💳 Pay with Card →'}
+            </button>
+            <p className="text-xs mt-3" style={{ color: '#475569' }}>Secured by Stripe · 256-bit SSL encryption</p>
+          </div>
+        )}
+
+        {selectedMethod && selectedMethod !== 'crypto' && selectedMethod !== 'stripe' && (
           <div style={CARD} className="p-6 text-center">
             <div className="text-3xl mb-3">⚙️</div>
             <h3 className="text-lg font-bold mb-2" style={{ color: '#f1f5f9' }}>{METHOD_LABELS[selectedMethod]} — Coming Soon</h3>
